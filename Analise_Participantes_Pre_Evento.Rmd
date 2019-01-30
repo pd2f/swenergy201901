@@ -1,0 +1,101 @@
+---
+title: "Participantes Startup Weekend Energy 2019"
+author: "Paulo Franco"
+date: "30 de janeiro de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+library(knitr)
+library(readxl)
+library(plotly)
+library(dplyr)
+library(gridExtra)
+library(ggplot2)
+library(scales)
+library(ggrepel)
+library(plotrix)
+library(lubridate)
+```
+
+## Participantes
+
+```{r participantes, echo=FALSE, paged.print=TRUE}
+#consulta com eliminação dos registros de cabeçalho.
+lista_de_participantes<- read_excel("Lista de participantes - Techstars_Startup_Weekend_So_Paulo_Energy (0128).xlsx",range ="A8:AA1000" )
+# Eliminação dos registros de rodapé
+participantes_dados <- lista_de_participantes[!is.na(lista_de_participantes$`Nº ingresso`),] %>%filter(`Estado de pagamento` == 'Aprovado')
+kable(paste0("São ",length(participantes_dados$`Ordem de inscrição`)," participantes aprovados até o momento."), format = "html",col.names =" ")
+
+```
+
+## Características dos Participantes
+* Referências de tamanhos de camisetas
+```{r car_fisicas, echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+caracteristicas_participantes <- select(participantes_dados,`Gênero`,`Formação`,`Data de nascimento`,`Tamanho de Camiseta`)
+table(caracteristicas_participantes$Gênero,caracteristicas_participantes$`Tamanho de Camiseta`)
+```
+*Os resultados da respostas "Prefere Não Responder" correspondem a uma mesma compra. Parece que no momento da compra ainda não se havia definido quem seriam os participantes.*
+
+#### Escolaridade Declarada pelos Participantes
+
+```{r car_escolaridade}
+escolaridade <- as.data.frame(table(coalesce(caracteristicas_participantes$Formação,"Não Informada")))
+names(escolaridade) <- c("Respostas","Frequencia")
+
+coloursShot <- c("Pós-Graduação"="orange", "Ensino Médio Completo"="red", "Ensino Superior Completo"="green", "Ensino Superior Incompleto"="yellow","Não Informada"="grey")
+
+escolaridade_decl <- function(resp){
+  escolaridade %>% 
+    count(Respostas) %>%
+    ggplot(aes(x=reorder(Respostas, escolaridade$Frequencia), y=escolaridade$Frequencia/sum(escolaridade$Frequencia), fill=factor(Respostas))) +
+    geom_bar(stat='identity', width = 0.7) + scale_fill_manual(values = coloursShot) +
+    theme(legend.position="none") + coord_flip(ylim = c(0, 0.6)) + labs(x=resp, y=" ") +    
+    scale_y_continuous(labels=percent)
+}
+
+pg <- escolaridade_decl(' ')
+
+pg
+```
+
+## Distribuição dos Participantes por idade
+
+```{r idades}
+data_nas <- dmy(caracteristicas_participantes$`Data de nascimento`)
+idades <- floor((today()-data_nas)/dyears(1))
+summary(idades)
+hist(idades)
+```
+
+
+## Expectativas dos Participantes
+
+No questionário de inscrição foi realizada a seguinte pergunta "O que você espera encontrar na Techstars Startup Weekend?". Pergunta fechada de múltipla escolha. Obtivemos os seguintes resultados:
+
+
+```{r consultas_transformacoes, echo=FALSE, message=FALSE, warning=FALSE}
+
+#Limpando variável Interesse
+limpa_string <- gsub('\"',"",participantes_dados$`O que você espera encontrar na Techstars Startup Weekend?`)
+#computando e convertendo variável interesse
+interesse <- as.matrix(strsplit(limpa_string,","))
+matriz_interesse <- matrix(unlist(interesse))
+df_interesse = as.data.frame(table(na.omit(matriz_interesse)))
+names(df_interesse) <- c("Respostas","Frequencia")
+
+```
+
+
+```{r pressure, echo=FALSE, message=FALSE, warning=FALSE}
+ggplotly(df_interesse %>% 
+                   ggplot(aes(x=Respostas, y=Frequencia)) + geom_bar(stat='identity', fill='red') +
+                   #scale_y_continuous(labels=comma) +
+                   labs(x='Resposta', y='Frequência', title='Interesse Declarado dos Participantes no SW ENERGY'))
+```
+
